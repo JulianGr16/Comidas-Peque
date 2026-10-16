@@ -127,6 +127,7 @@ function App() {
       openedAt: new Date().toISOString(),
       closedAt: null,
       sales: [],
+      expenses: [],
     }, ...current])
   }
 
@@ -155,6 +156,26 @@ function App() {
     )))
 
     return sale
+  }
+
+  const registerCashExpense = (concept, amount) => {
+    const cleanConcept = concept.trim()
+    if (!activeBox || !cleanConcept || !Number.isFinite(amount) || amount <= 0) return false
+
+    const expense = {
+      id: `${Date.now()}`,
+      concept: cleanConcept,
+      amount,
+      recordedAt: new Date().toISOString(),
+    }
+
+    setCashBoxes((current) => current.map((cashBox) => (
+      cashBox.id === activeBox.id
+        ? { ...cashBox, expenses: [...(cashBox.expenses ?? []), expense] }
+        : cashBox
+    )))
+
+    return expense
   }
 
   const deleteCashBox = (cashBoxId) => {
@@ -257,6 +278,7 @@ function App() {
           onOpenBox={openCashBox}
           onCloseBox={closeCashBox}
           onRegisterSale={registerSale}
+          onRegisterCashExpense={registerCashExpense}
         />
       )}
 

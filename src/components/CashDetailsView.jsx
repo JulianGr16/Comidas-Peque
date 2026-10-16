@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Clock3, FileDown, LockKeyhole, ReceiptText, Trash2, UnlockKeyhole, X } from 'lucide-react'
+import { ArrowLeft, CircleDollarSign, Clock3, FileDown, LockKeyhole, ReceiptText, Trash2, UnlockKeyhole, X } from 'lucide-react'
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters.js'
 import { downloadCashBoxPdf } from '../utils/cashBoxPdf.js'
 
@@ -7,6 +7,14 @@ function getBoxTotal(cashBox) {
   return cashBox.sales.reduce((total, sale) => (
     total + sale.items.reduce((saleTotal, item) => saleTotal + item.price * item.quantity, 0)
   ), 0)
+}
+
+function getBoxExpenses(cashBox) {
+  return cashBox.expenses ?? []
+}
+
+function getBoxExpenseTotal(cashBox) {
+  return getBoxExpenses(cashBox).reduce((total, expense) => total + expense.amount, 0)
 }
 
 function getLocalDateKey(value) {
@@ -26,6 +34,8 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
     ? orderedCashBoxes.filter((cashBox) => getLocalDateKey(cashBox.openedAt) === selectedDate)
     : orderedCashBoxes
   const visibleTotal = visibleCashBoxes.reduce((sum, cashBox) => sum + getBoxTotal(cashBox), 0)
+  const visibleExpenseTotal = visibleCashBoxes.reduce((sum, cashBox) => sum + getBoxExpenseTotal(cashBox), 0)
+  const visibleNetTotal = visibleTotal - visibleExpenseTotal
 
   const deleteCashBox = (cashBox) => {
     const confirmed = window.confirm(
@@ -46,9 +56,19 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
           <h1>Detalle de cajas</h1>
           <p className="work-subtitle">Aperturas, cierres y ventas registradas.</p>
         </div>
-        <div className="cash-total-summary">
-          <span>{selectedDate ? 'Ventas del día' : 'Ventas acumuladas'}</span>
-          <strong>{formatCurrency(visibleTotal)}</strong>
+        <div className="cash-flow-summary">
+          <div>
+            <span>{selectedDate ? 'Ventas del día' : 'Ventas acumuladas'}</span>
+            <strong>{formatCurrency(visibleTotal)}</strong>
+          </div>
+          <div>
+            <span>Gastos varios</span>
+            <strong>{formatCurrency(visibleExpenseTotal)}</strong>
+          </div>
+          <div>
+            <span>Neto registrado</span>
+            <strong>{formatCurrency(visibleNetTotal)}</strong>
+          </div>
         </div>
       </div>
 
@@ -85,6 +105,9 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
             <div className="box-history">
               {visibleCashBoxes.map((cashBox) => {
             const total = getBoxTotal(cashBox)
+            const expenses = getBoxExpenses(cashBox)
+            const expenseTotal = getBoxExpenseTotal(cashBox)
+            const netTotal = total - expenseTotal
             const itemCount = cashBox.sales.reduce((sum, sale) => (
               sum + sale.items.reduce((saleCount, item) => saleCount + item.quantity, 0)
             ), 0)
@@ -141,6 +164,14 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
                     <span>Total vendido</span>
                     <strong>{formatCurrency(total)}</strong>
                   </div>
+                  <div className="box-number-metric expense-metric">
+                    <span>Gastos varios</span>
+                    <strong>{formatCurrency(expenseTotal)}</strong>
+                  </div>
+                  <div className="box-number-metric net-metric">
+                    <span>Neto registrado</span>
+                    <strong>{formatCurrency(netTotal)}</strong>
+                  </div>
                 </div>
 
                 {cashBox.sales.length > 0 && (
@@ -159,6 +190,21 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
                         </div>
                       )
                     })}
+                  </div>
+                )}
+
+                {expenses.length > 0 && (
+                  <div className="cash-expenses-history">
+                    <h3><CircleDollarSign size={16} /> Gastos varios de esta caja</h3>
+                    {expenses.map((expense) => (
+                      <div className="cash-expense-history-row" key={expense.id}>
+                        <div>
+                          <strong>{expense.concept}</strong>
+                          <span>{formatDateTime(expense.recordedAt)}</span>
+                        </div>
+                        <strong>{formatCurrency(expense.amount)}</strong>
+                      </div>
+                    ))}
                   </div>
                 )}
               </article>

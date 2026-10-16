@@ -13,6 +13,14 @@ function getBoxTotal(cashBox) {
   return cashBox.sales.reduce((total, sale) => total + getSaleTotal(sale), 0)
 }
 
+function getBoxExpenses(cashBox) {
+  return cashBox.expenses ?? []
+}
+
+function getBoxExpenseTotal(cashBox) {
+  return getBoxExpenses(cashBox).reduce((total, expense) => total + expense.amount, 0)
+}
+
 function getProductCount(cashBox) {
   return cashBox.sales.reduce((total, sale) => (
     total + sale.items.reduce((saleCount, item) => saleCount + item.quantity, 0)
@@ -52,6 +60,9 @@ export async function createCashBoxPdf(cashBox) {
   const { jsPDF } = await import('jspdf')
   const document = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const total = getBoxTotal(cashBox)
+  const expenses = getBoxExpenses(cashBox)
+  const expenseTotal = getBoxExpenseTotal(cashBox)
+  const netTotal = total - expenseTotal
   const productCount = getProductCount(cashBox)
   let y = drawPageHeader(document, cashBox)
 
@@ -67,19 +78,23 @@ export async function createCashBoxPdf(cashBox) {
   y += 12
 
   document.setFillColor(36, 70, 52)
-  document.roundedRect(LEFT, y, RIGHT - LEFT, 23, 2, 2, 'F')
+  document.roundedRect(LEFT, y, RIGHT - LEFT, 27, 2, 2, 'F')
   document.setTextColor(255, 255, 255)
-  document.setFontSize(8)
-  document.text('VENTAS', LEFT + 7, y + 8)
-  document.text('PRODUCTOS', 83, y + 8)
-  document.text('TOTAL VENDIDO', 139, y + 8)
+  document.setFontSize(7)
+  document.text('VENTAS', LEFT + 6, y + 8)
+  document.text('PRODUCTOS', LEFT + 40, y + 8)
+  document.text('VENDIDO', LEFT + 76, y + 8)
+  document.text('GASTOS', LEFT + 113, y + 8)
+  document.text('NETO', RIGHT - 6, y + 8, { align: 'right' })
   document.setFont('helvetica', 'bold')
-  document.setFontSize(13)
-  document.text(`${cashBox.sales.length}`, LEFT + 7, y + 17)
-  document.text(`${productCount}`, 83, y + 17)
-  document.text(formatCurrency(total), 139, y + 17)
+  document.setFontSize(10)
+  document.text(`${cashBox.sales.length}`, LEFT + 6, y + 19)
+  document.text(`${productCount}`, LEFT + 40, y + 19)
+  document.text(formatCurrency(total), LEFT + 76, y + 19)
+  document.text(formatCurrency(expenseTotal), LEFT + 113, y + 19)
+  document.text(formatCurrency(netTotal), RIGHT - 6, y + 19, { align: 'right' })
   document.setTextColor(35, 56, 47)
-  y += 33
+  y += 37
 
   if (cashBox.sales.length === 0) {
     document.setFont('helvetica', 'normal')
@@ -126,6 +141,38 @@ export async function createCashBoxPdf(cashBox) {
     document.setDrawColor(215, 223, 215)
     document.line(LEFT, y - 3, RIGHT, y - 3)
   })
+
+  if (expenses.length > 0) {
+    if (y > PAGE_HEIGHT - 28) {
+      document.addPage()
+      y = drawPageHeader(document, cashBox, true)
+    }
+
+    document.setFont('helvetica', 'bold')
+    document.setFontSize(11)
+    document.text('Gastos varios del turno', LEFT, y)
+    y += 8
+
+    expenses.forEach((expense) => {
+      const conceptLines = document.splitTextToSize(expense.concept, 112)
+      const rowHeight = Math.max(9, conceptLines.length * 4 + 4)
+
+      if (y + rowHeight > PAGE_HEIGHT - 16) {
+        document.addPage()
+        y = drawPageHeader(document, cashBox, true)
+      }
+
+      document.setFont('helvetica', 'normal')
+      document.setFontSize(8)
+      document.text(conceptLines, LEFT + 2, y)
+      document.setFontSize(7)
+      document.text(formatDateTime(expense.recordedAt), LEFT + 2, y + 4)
+      document.setFont('helvetica', 'bold')
+      document.setFontSize(8)
+      document.text(formatCurrency(expense.amount), RIGHT - 2, y, { align: 'right' })
+      y += rowHeight
+    })
+  }
 
   const datePart = new Date(cashBox.openedAt).toLocaleDateString('sv-SE')
   return {

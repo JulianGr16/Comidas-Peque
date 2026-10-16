@@ -477,6 +477,105 @@
 	font-size: 12px;
 }
 
+.cash-expenses-panel {
+	margin-top: 13px;
+	padding: 17px 18px;
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	background: #18221c;
+}
+
+.cash-expenses-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.cash-expenses-heading .eyebrow {
+	color: #b8a98c;
+}
+
+.cash-expenses-heading h2 {
+	margin: 4px 0 0;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.cash-expense-total {
+	display: grid;
+	gap: 3px;
+	text-align: right;
+}
+
+.cash-expense-total span {
+	color: #aebbb1;
+	font-size: 10px;
+}
+
+.cash-expense-total strong {
+	color: #f0c27f;
+	font-size: 16px;
+}
+
+.cash-expense-form {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(130px, 0.45fr) auto;
+	align-items: end;
+	gap: 11px;
+	margin-top: 14px;
+}
+
+.cash-expense-submit {
+	min-width: 145px;
+	border-color: #62543b;
+	color: #f1e4c9;
+	background: #393326;
+}
+
+.cash-expense-submit:hover:not(:disabled) {
+	border-color: #8a744b;
+	background: #49402e;
+}
+
+.cash-expense-list {
+	max-height: 180px;
+	margin-top: 12px;
+	overflow-y: auto;
+	border-top: 1px solid #344138;
+}
+
+.cash-expense-row {
+	display: flex;
+	align-items: start;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 10px 0;
+	border-bottom: 1px solid #303d34;
+}
+
+.cash-expense-row > div {
+	min-width: 0;
+	display: grid;
+	gap: 4px;
+}
+
+.cash-expense-row > div strong {
+	overflow-wrap: anywhere;
+	font-size: 11px;
+}
+
+.cash-expense-row > div span {
+	color: #aebbb1;
+	font-size: 10px;
+}
+
+.cash-expense-row > strong {
+	flex: 0 0 auto;
+	color: #f0c27f;
+	font-size: 11px;
+}
+
 .button {
 	min-height: 40px;
 	display: inline-flex;
@@ -854,6 +953,27 @@
 
 .cash-total-summary strong {
 	font-size: 22px;
+}
+
+.cash-flow-summary {
+	display: grid;
+	grid-template-columns: repeat(3, max-content);
+	gap: 18px;
+	text-align: right;
+}
+
+.cash-flow-summary > div {
+	display: grid;
+	gap: 4px;
+}
+
+.cash-flow-summary span {
+	color: #aebbb1;
+	font-size: 10px;
+}
+
+.cash-flow-summary strong {
+	font-size: 14px;
 }
 
 .stats-period-note {
@@ -1436,7 +1556,7 @@
 
 .box-metrics {
 	display: grid;
-	grid-template-columns: 1.5fr 1.5fr 0.7fr 0.8fr 1fr;
+	grid-template-columns: 1.4fr 1.4fr 0.7fr 0.8fr 1fr 1fr 1fr;
 	gap: 13px;
 	margin-top: 18px;
 	padding: 14px 0;
@@ -1526,6 +1646,14 @@
 	color: #f0a180;
 }
 
+.expense-metric strong {
+	color: #f0c27f;
+}
+
+.net-metric strong {
+	color: #a9d1a9;
+}
+
 .sales-list {
 	padding-top: 14px;
 }
@@ -1570,6 +1698,51 @@
 .sale-row > strong {
 	flex: 0 0 auto;
 	color: #e8eee8;
+}
+
+.cash-expenses-history {
+	padding-top: 14px;
+}
+
+.cash-expenses-history h3 {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	margin: 0 0 7px;
+	color: #e0cca7;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.cash-expense-history-row {
+	display: flex;
+	align-items: start;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 10px 0;
+	border-top: 1px solid #303d34;
+}
+
+.cash-expense-history-row > div {
+	min-width: 0;
+	display: grid;
+	gap: 4px;
+}
+
+.cash-expense-history-row > div strong,
+.cash-expense-history-row > strong {
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.cash-expense-history-row > div span {
+	color: #aebbb1;
+	font-size: 10px;
+}
+
+.cash-expense-history-row > strong {
+	flex: 0 0 auto;
+	color: #f0c27f;
 }
 
 @keyframes arrive {
@@ -1622,13 +1795,21 @@
 		gap: 12px;
 	}
 
+	.cash-expense-form {
+		grid-template-columns: minmax(0, 1fr) minmax(115px, 0.45fr);
+	}
+
+	.cash-expense-submit {
+		grid-column: 1 / -1;
+	}
+
 	.menu-panel,
 	.cart-panel {
 		padding: 15px;
 	}
 
 	.box-metrics {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 	}
 
 	.stats-period-grid {
@@ -1729,6 +1910,22 @@
 		grid-column: 1 / -1;
 	}
 
+	.expense-metric,
+	.net-metric {
+		grid-column: 1 / -1;
+	}
+
+	.cash-flow-summary {
+		width: 100%;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 9px;
+		text-align: left;
+	}
+
+	.cash-flow-summary strong {
+		font-size: 12px;
+	}
+
 	.stats-period-grid {
 		grid-template-columns: 1fr;
 		gap: 9px;
@@ -1759,6 +1956,15 @@
 
 	.cash-control .button {
 		width: 100%;
+	}
+
+	.cash-expense-form {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.cash-expense-submit {
+		width: 100%;
+		grid-column: auto;
 	}
 
 	.product-grid {

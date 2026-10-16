@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   Clock3,
+  CircleDollarSign,
   Download,
   LockKeyhole,
   Minus,
@@ -56,15 +57,20 @@ const menu = [
   },
 ]
 
-function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale }) {
+function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale, onRegisterCashExpense }) {
   const [selectedCategory, setSelectedCategory] = useState(menu[0].id)
   const [cart, setCart] = useState([])
   const [feedback, setFeedback] = useState('')
   const [lastSale, setLastSale] = useState(null)
   const [ticketFeedback, setTicketFeedback] = useState('')
+  const [cashExpenseConcept, setCashExpenseConcept] = useState('')
+  const [cashExpenseAmount, setCashExpenseAmount] = useState('')
+  const [cashExpenseFeedback, setCashExpenseFeedback] = useState('')
   const category = menu.find((item) => item.id === selectedCategory)
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+  const boxExpenses = activeBox?.expenses ?? []
+  const boxExpenseTotal = boxExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
   const addProduct = (product) => {
     setFeedback('')
@@ -116,6 +122,24 @@ function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale 
     } catch {
       setTicketFeedback('No se pudo descargar el ticket. Intenta compartirlo por WhatsApp.')
     }
+  }
+
+  const addCashExpense = (event) => {
+    event.preventDefault()
+    const amount = Number(cashExpenseAmount)
+    if (!activeBox || !cashExpenseConcept.trim() || !Number.isFinite(amount) || amount <= 0) {
+      setCashExpenseFeedback('Ingresa un concepto y un importe mayor a cero con la caja abierta.')
+      return
+    }
+
+    if (!onRegisterCashExpense(cashExpenseConcept, amount)) {
+      setCashExpenseFeedback('No se pudo registrar el retiro. Verifica que la caja siga abierta.')
+      return
+    }
+
+    setCashExpenseConcept('')
+    setCashExpenseAmount('')
+    setCashExpenseFeedback('Gasto registrado en este turno.')
   }
 
   const closeBox = () => {
@@ -170,6 +194,68 @@ function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale 
           </button>
         )}
       </div>
+
+      <section className="cash-expenses-panel" aria-labelledby="cash-expenses-title">
+        <div className="cash-expenses-heading">
+          <div>
+            <p className="eyebrow">RETIROS DEL TURNO</p>
+            <h2 id="cash-expenses-title">Gastos varios</h2>
+          </div>
+          <div className="cash-expense-total">
+            <span>Total retirado</span>
+            <strong>{formatCurrency(boxExpenseTotal)}</strong>
+          </div>
+        </div>
+
+        <form className="cash-expense-form" onSubmit={addCashExpense}>
+          <label className="expense-field">
+            <span>Concepto</span>
+            <input
+              autoComplete="off"
+              maxLength={100}
+              onChange={(event) => setCashExpenseConcept(event.target.value)}
+              placeholder="Ej. Compra de hielo"
+              required
+              value={cashExpenseConcept}
+            />
+          </label>
+          <label className="expense-field">
+            <span>Importe retirado</span>
+            <span className="amount-input-wrap">
+              <span>$</span>
+              <input
+                inputMode="decimal"
+                min="1"
+                onChange={(event) => setCashExpenseAmount(event.target.value)}
+                placeholder="0"
+                required
+                step="1"
+                type="number"
+                value={cashExpenseAmount}
+              />
+            </span>
+          </label>
+          <button className="button secondary cash-expense-submit" type="submit" disabled={!activeBox}>
+            <CircleDollarSign size={16} /> Registrar retiro
+          </button>
+        </form>
+        {!activeBox && <p className="checkout-hint">Abre la caja para registrar un gasto del turno.</p>}
+        {cashExpenseFeedback && <p className="feedback-message" role="status">{cashExpenseFeedback}</p>}
+
+        {boxExpenses.length > 0 && (
+          <div className="cash-expense-list">
+            {boxExpenses.map((expense) => (
+              <div className="cash-expense-row" key={expense.id}>
+                <div>
+                  <strong>{expense.concept}</strong>
+                  <span>{formatDateTime(expense.recordedAt)}</span>
+                </div>
+                <strong>{formatCurrency(expense.amount)}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="sales-layout">
         <section className="menu-panel" aria-labelledby="menu-title">

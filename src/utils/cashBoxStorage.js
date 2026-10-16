@@ -4,6 +4,7 @@ const DATABASE_NAME = 'comidaspeque-local'
 const DATABASE_VERSION = 1
 const STORE_NAME = 'app-state'
 const CASH_BOXES_KEY = 'cashBoxes'
+const PURCHASES_KEY = 'productPurchases'
 const LEGACY_STORAGE_KEY = 'comidaspeque.cashboxes.v1'
 
 let databasePromise
@@ -62,4 +63,15 @@ export async function loadCashBoxes() {
 export async function saveCashBoxes(cashBoxes) {
   const database = await getDatabase()
   await database.put(STORE_NAME, cashBoxes, CASH_BOXES_KEY)
+}
+
+export async function loadProductPurchases() {
+  const database = await getDatabase()
+  const purchases = await database.get(STORE_NAME, PURCHASES_KEY)
+  return Array.isArray(purchases) ? purchases : []
+}
+
+export async function saveProductPurchases(purchases) {
+  const database = await getDatabase()
+  await database.put(STORE_NAME, purchases, PURCHASES_KEY)
 }

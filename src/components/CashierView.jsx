@@ -123,6 +123,10 @@ function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale 
       setFeedback('Registra o vacía el carrito antes de cerrar la caja.')
       return
     }
+
+    const confirmed = window.confirm('¿Deseas cerrar la caja? Se registrará la fecha y hora de cierre.')
+    if (!confirmed) return
+
     onCloseBox()
     setFeedback('Caja cerrada y registrada.')
   }

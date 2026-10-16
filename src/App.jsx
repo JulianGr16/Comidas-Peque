@@ -10,7 +10,14 @@ import {
 } from 'lucide-react'
 import CashDetailsView from './components/CashDetailsView.jsx'
 import CashierView from './components/CashierView.jsx'
-import { loadCashBoxes, saveCashBoxes } from './utils/cashBoxStorage.js'
+import ProductExpensesView from './components/ProductExpensesView.jsx'
+import SalesStatisticsView from './components/SalesStatisticsView.jsx'
+import {
+  loadCashBoxes,
+  loadProductPurchases,
+  saveCashBoxes,
+  saveProductPurchases,
+} from './utils/cashBoxStorage.js'
 
 const modules = [
   {
@@ -29,6 +36,7 @@ const modules = [
     category: 'PRODUCTOS',
     icon: ReceiptText,
     color: 'leaf',
+    view: 'expenses',
   },
   {
     number: '03',
@@ -37,6 +45,7 @@ const modules = [
     category: 'ANÁLISIS',
     icon: ChartNoAxesColumnIncreasing,
     color: 'blue',
+    view: 'stats',
   },
   {
     number: '04',
@@ -49,18 +58,33 @@ const modules = [
   },
 ]
 
+function getPageFromHash() {
+  const page = window.location.hash.slice(1)
+  return page === 'cashier' || page === 'details' || page === 'stats' || page === 'expenses'
+    ? page
+    : 'home'
+}
+
 function App() {
-  const [page, setPage] = useState('home')
+  const [page, setPage] = useState(getPageFromHash)
   const [cashBoxes, setCashBoxes] = useState([])
+  const [productPurchases, setProductPurchases] = useState([])
   const [storageStatus, setStorageStatus] = useState('loading')
+
+  useEffect(() => {
+    const syncPageWithHash = () => setPage(getPageFromHash())
+    window.addEventListener('hashchange', syncPageWithHash)
+    return () => window.removeEventListener('hashchange', syncPageWithHash)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
 
-    loadCashBoxes()
-      .then((storedCashBoxes) => {
+    Promise.all([loadCashBoxes(), loadProductPurchases()])
+      .then(([storedCashBoxes, storedPurchases]) => {
         if (cancelled) return
         setCashBoxes(storedCashBoxes)
+        setProductPurchases(storedPurchases)
         setStorageStatus('ready')
       })
       .catch(() => {
@@ -78,7 +102,22 @@ function App() {
     saveCashBoxes(cashBoxes).catch(() => setStorageStatus('error'))
   }, [cashBoxes, storageStatus])
 
+  useEffect(() => {
+    if (storageStatus !== 'ready') return
+
+    saveProductPurchases(productPurchases).catch(() => setStorageStatus('error'))
+  }, [productPurchases, storageStatus])
+
   const activeBox = cashBoxes.find((cashBox) => !cashBox.closedAt) ?? null
+
+  const navigateTo = (nextPage) => {
+    const nextHash = nextPage === 'home' ? '' : `#${nextPage}`
+    if (window.location.hash === nextHash) {
+      setPage(nextPage)
+      return
+    }
+    window.location.hash = nextHash
+  }
 
   const openCashBox = () => {
     if (activeBox) return
@@ -122,6 +161,20 @@ function App() {
     setCashBoxes((current) => current.filter((cashBox) => cashBox.id !== cashBoxId))
   }
 
+  const addProductPurchase = (purchaseDetails) => {
+    const purchase = {
+      ...purchaseDetails,
+      id: `${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    }
+
+    setProductPurchases((current) => [purchase, ...current])
+  }
+
+  const deleteProductPurchase = (purchaseId) => {
+    setProductPurchases((current) => current.filter((purchase) => purchase.id !== purchaseId))
+  }
+
   if (storageStatus !== 'ready') {
     return (
       <main className="dashboard">
@@ -137,7 +190,7 @@ function App() {
   return (
     <main className="dashboard">
       <header className="topbar">
-        <button className="brand" type="button" onClick={() => setPage('home')} aria-label="Volver al inicio">
+        <button className="brand" type="button" onClick={() => navigateTo('home')} aria-label="Volver al inicio">
           <span className="brand-mark"><CookingPot size={21} strokeWidth={2} /></span>
           <span>Comidas<span className="brand-accent">Peque</span></span>
         </button>
@@ -178,7 +231,7 @@ function App() {
                   key={number}
                   type="button"
                   disabled={!view}
-                  onClick={() => view && setPage(view)}
+                  onClick={() => view && navigateTo(view)}
                 >
                   <span className="card-topline">
                     <span className="module-icon"><Icon size={22} strokeWidth={1.8} /></span>
@@ -200,7 +253,7 @@ function App() {
       {page === 'cashier' && (
         <CashierView
           activeBox={activeBox}
-          onBack={() => setPage('home')}
+          onBack={() => navigateTo('home')}
           onOpenBox={openCashBox}
           onCloseBox={closeCashBox}
           onRegisterSale={registerSale}
@@ -210,8 +263,21 @@ function App() {
       {page === 'details' && (
         <CashDetailsView
           cashBoxes={cashBoxes}
-          onBack={() => setPage('home')}
+          onBack={() => navigateTo('home')}
           onDeleteCashBox={deleteCashBox}
+        />
+      )}
+
+      {page === 'stats' && (
+        <SalesStatisticsView cashBoxes={cashBoxes} onBack={() => navigateTo('home')} />
+      )}
+
+      {page === 'expenses' && (
+        <ProductExpensesView
+          purchases={productPurchases}
+          onAddPurchase={addProductPurchase}
+          onDeletePurchase={deleteProductPurchase}
+          onBack={() => navigateTo('home')}
         />
       )}
 

@@ -7,58 +7,30 @@ import {
   Download,
   LockKeyhole,
   Minus,
+  Pencil,
   Plus,
   ShoppingCart,
   Trash2,
   UnlockKeyhole,
 } from 'lucide-react'
 import { formatCurrency, formatDateTime } from '../utils/formatters.js'
+import { cashMenuCategories } from '../utils/cashMenu.js'
+import { getIngredientOptions, getRecipeUnitCost } from '../utils/productCosting.js'
 import { downloadSaleTicket } from '../utils/salesTicket.js'
 
-const menu = [
-  {
-    id: 'burgers',
-    title: 'Hamburguesas',
-    products: [
-      { id: 'burger-clasica', name: 'Burger clásica', price: 9000 },
-      { id: 'burger-especial', name: 'Burger especial', price: 10000 },
-      { id: 'peque-burger-2', name: 'Peque Burger 2.0', price: 10000 },
-      { id: 'peque-burger-3', name: 'Peque Burger 3.0', price: 12000 },
-      { id: 'bacon-burger', name: 'Bacon Burger', price: 11000 },
-    ],
-  },
-  {
-    id: 'extras',
-    title: 'Agregados',
-    products: [
-      { id: 'medallon', name: 'Medallón', price: 2500 },
-      { id: 'huevo', name: 'Huevo', price: 1000 },
-      { id: 'cheddar', name: 'Cheddar', price: 2000 },
-      { id: 'bacon-extra', name: 'Bacon', price: 2500 },
-    ],
-  },
-  {
-    id: 'fries',
-    title: 'Porciones de papas',
-    products: [
-      { id: 'papas-comunes', name: 'Papas comunes', price: 6000 },
-      { id: 'papas-cheddar', name: 'Papas con cheddar', price: 8000 },
-    ],
-  },
-  {
-    id: 'sandwiches',
-    title: 'Sándwiches y lomitos',
-    products: [
-      { id: 'sandwich-comun', name: 'Sándwich común', price: 7500 },
-      { id: 'sandwich-especial', name: 'Sándwich especial', price: 9000 },
-      { id: 'lomito-comun', name: 'Lomito común', price: 10000 },
-      { id: 'lomito-especial', name: 'Lomito especial', price: 11500 },
-    ],
-  },
-]
-
-function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale, onRegisterCashExpense }) {
-  const [selectedCategory, setSelectedCategory] = useState(menu[0].id)
+function CashierView({
+  activeBox,
+  menuProducts,
+  productPurchases,
+  onBack,
+  onOpenBox,
+  onCloseBox,
+  onRegisterSale,
+  onRegisterCashExpense,
+  onAddMenuProduct,
+  onUpdateMenuProduct,
+}) {
+  const [selectedCategory, setSelectedCategory] = useState(cashMenuCategories[0])
   const [cart, setCart] = useState([])
   const [feedback, setFeedback] = useState('')
   const [lastSale, setLastSale] = useState(null)
@@ -66,7 +38,15 @@ function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale,
   const [cashExpenseConcept, setCashExpenseConcept] = useState('')
   const [cashExpenseAmount, setCashExpenseAmount] = useState('')
   const [cashExpenseFeedback, setCashExpenseFeedback] = useState('')
-  const category = menu.find((item) => item.id === selectedCategory)
+  const [isMenuEditing, setIsMenuEditing] = useState(false)
+  const [selectedMenuProduct, setSelectedMenuProduct] = useState('new')
+  const [menuProductName, setMenuProductName] = useState('')
+  const [menuProductPrice, setMenuProductPrice] = useState('')
+  const [recipeItems, setRecipeItems] = useState([])
+  const [nextRecipeItemId, setNextRecipeItemId] = useState(1)
+  const [menuFeedback, setMenuFeedback] = useState('')
+  const ingredientOptions = getIngredientOptions(productPurchases)
+  const categoryProducts = menuProducts.filter((product) => product.category === selectedCategory)
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const boxExpenses = activeBox?.expenses ?? []
@@ -85,6 +65,72 @@ function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale,
       }
       return [...current, { ...product, quantity: 1 }]
     })
+  }
+
+  const selectMenuProduct = (productId) => {
+    setSelectedMenuProduct(productId)
+    setMenuFeedback('')
+
+    const product = menuProducts.find((item) => item.id === productId)
+    setMenuProductName(product?.name ?? '')
+    setMenuProductPrice(product ? `${product.price}` : '')
+    setRecipeItems((product?.recipe ?? []).map((item, index) => ({ ...item, id: index })))
+    setNextRecipeItemId((product?.recipe?.length ?? 0) + 1)
+    if (product) setSelectedCategory(product.category)
+  }
+
+  const updateRecipeItem = (itemId, field, value) => {
+    setRecipeItems((current) => current.map((item) => (
+      item.id === itemId ? { ...item, [field]: value } : item
+    )))
+  }
+
+  const addRecipeItem = () => {
+    setRecipeItems((current) => [
+      ...current,
+      { id: nextRecipeItemId, name: '', quantity: '', unit: 'kg' },
+    ])
+    setNextRecipeItemId((current) => current + 1)
+  }
+
+  const removeRecipeItem = (itemId) => {
+    setRecipeItems((current) => current.filter((item) => item.id !== itemId))
+  }
+
+  const saveMenuProduct = (event) => {
+    event.preventDefault()
+    const name = menuProductName.trim()
+    const price = Number(menuProductPrice)
+
+    if (!name || !Number.isFinite(price) || price <= 0) {
+      setMenuFeedback('Ingresa un nombre y un precio mayor a cero.')
+      return
+    }
+
+    const recipe = recipeItems.map((item) => ({
+      name: item.name.trim(),
+      quantity: Number(item.quantity),
+      unit: item.unit,
+    }))
+    if (recipe.some((item) => !item.name || !Number.isFinite(item.quantity) || item.quantity <= 0)) {
+      setMenuFeedback('Completa el insumo, la cantidad y la unidad de cada línea de receta.')
+      return
+    }
+
+    if (selectedMenuProduct === 'new') {
+      const product = onAddMenuProduct({ name, price, category: 'Comidas varias', recipe })
+      setSelectedCategory(product.category)
+      setMenuFeedback('Producto agregado a Comidas varias.')
+    } else {
+      onUpdateMenuProduct(selectedMenuProduct, { name, price, recipe })
+      setMenuFeedback('Producto actualizado.')
+    }
+
+    setSelectedMenuProduct('new')
+    setMenuProductName('')
+    setMenuProductPrice('')
+    setRecipeItems([])
+    setNextRecipeItemId(1)
   }
 
   const changeQuantity = (productId, change) => {
@@ -264,23 +310,158 @@ function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale,
               <p className="eyebrow">MENÚ</p>
               <h2 id="menu-title">Productos</h2>
             </div>
+            <button
+              className={`button ${isMenuEditing ? 'secondary' : 'menu-edit-toggle'}`}
+              type="button"
+              onClick={() => {
+                setIsMenuEditing((current) => !current)
+                selectMenuProduct('new')
+              }}
+            >
+              {isMenuEditing ? <Check size={15} /> : <Pencil size={15} />}
+              {isMenuEditing ? 'Listo' : 'Editar menú'}
+            </button>
           </div>
+
+          {isMenuEditing && (
+            <form className="menu-editor" onSubmit={saveMenuProduct}>
+              <p className="eyebrow">EDITAR CATÁLOGO</p>
+              <label className="expense-field">
+                <span>Producto</span>
+                <select value={selectedMenuProduct} onChange={(event) => selectMenuProduct(event.target.value)}>
+                  <option value="new">Nuevo producto · Comidas varias</option>
+                  {menuProducts.map((product) => (
+                    <option key={product.id} value={product.id}>{product.name} · {product.category}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="menu-editor-fields">
+                <label className="expense-field">
+                  <span>Nombre</span>
+                  <input
+                    autoComplete="off"
+                    maxLength={80}
+                    onChange={(event) => setMenuProductName(event.target.value)}
+                    placeholder="Nombre del producto"
+                    required
+                    value={menuProductName}
+                  />
+                </label>
+                <label className="expense-field">
+                  <span>Precio</span>
+                  <span className="amount-input-wrap">
+                    <span>$</span>
+                    <input
+                      inputMode="decimal"
+                      min="1"
+                      onChange={(event) => setMenuProductPrice(event.target.value)}
+                      placeholder="0"
+                      required
+                      step="1"
+                      type="number"
+                      value={menuProductPrice}
+                    />
+                  </span>
+                </label>
+              </div>
+              <div className="recipe-editor">
+                <div className="recipe-editor-heading">
+                  <div>
+                    <strong>Receta por porción</strong>
+                    <span>Los costos salen de Gastos de productos.</span>
+                  </div>
+                  <button className="add-recipe-item" type="button" onClick={addRecipeItem}>
+                    <Plus size={15} /> Insumo
+                  </button>
+                </div>
+                {recipeItems.length === 0 && (
+                  <p className="recipe-empty">Agrega los insumos usados para calcular la ganancia.</p>
+                )}
+                {ingredientOptions.length === 0 && recipeItems.length > 0 && (
+                  <p className="recipe-warning">Primero registra compras con cantidad y unidad en Gastos de productos.</p>
+                )}
+                {recipeItems.map((item, index) => (
+                  <div className="recipe-row" key={item.id}>
+                    <label className="expense-field">
+                      <span>Insumo {index + 1}</span>
+                      <select
+                        value={item.name}
+                        onChange={(event) => updateRecipeItem(item.id, 'name', event.target.value)}
+                        required
+                      >
+                        <option value="">Elegir insumo</option>
+                        {ingredientOptions.map((ingredient) => (
+                          <option key={ingredient.id} value={ingredient.name}>{ingredient.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="expense-field">
+                      <span>Cantidad</span>
+                      <input
+                        inputMode="decimal"
+                        min="0.001"
+                        onChange={(event) => updateRecipeItem(item.id, 'quantity', event.target.value)}
+                        placeholder="0"
+                        required
+                        step="any"
+                        type="number"
+                        value={item.quantity}
+                      />
+                    </label>
+                    <label className="expense-field">
+                      <span>Unidad</span>
+                      <select value={item.unit} onChange={(event) => updateRecipeItem(item.id, 'unit', event.target.value)}>
+                        <option value="kg">kg</option>
+                        <option value="g">g</option>
+                        <option value="litro">litro</option>
+                        <option value="ml">ml</option>
+                        <option value="unidad">unidad</option>
+                        <option value="paquete">paquete</option>
+                      </select>
+                    </label>
+                    <button
+                      className="remove-recipe-item"
+                      type="button"
+                      aria-label={`Quitar insumo ${index + 1}`}
+                      onClick={() => removeRecipeItem(item.id)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                {selectedMenuProduct !== 'new' && (() => {
+                  const product = menuProducts.find((item) => item.id === selectedMenuProduct)
+                  const costing = product ? getRecipeUnitCost({ ...product, recipe }, productPurchases) : null
+                  if (!costing) return null
+                  return costing.complete
+                    ? <p className="recipe-cost">Costo estimado por porción: <strong>{formatCurrency(costing.cost)}</strong></p>
+                    : <p className="recipe-warning">Costo incompleto: falta registrar cantidad/unidad comprada de {costing.missingIngredients.join(', ')}.</p>
+                })()}
+              </div>
+              <button className="button primary menu-editor-submit" type="submit">
+                {selectedMenuProduct === 'new' ? <Plus size={15} /> : <Check size={15} />}
+                {selectedMenuProduct === 'new' ? 'Agregar a Comidas varias' : 'Guardar cambios'}
+              </button>
+              {menuFeedback && <p className="feedback-message" role="status">{menuFeedback}</p>}
+            </form>
+          )}
+
           <div className="category-list" role="tablist" aria-label="Categorías del menú">
-            {menu.map((item) => (
+            {cashMenuCategories.map((categoryName) => (
               <button
-                className={`category-tab ${selectedCategory === item.id ? 'selected' : ''}`}
-                key={item.id}
+                className={`category-tab ${selectedCategory === categoryName ? 'selected' : ''}`}
+                key={categoryName}
                 type="button"
                 role="tab"
-                aria-selected={selectedCategory === item.id}
-                onClick={() => setSelectedCategory(item.id)}
+                aria-selected={selectedCategory === categoryName}
+                onClick={() => setSelectedCategory(categoryName)}
               >
-                {item.title}
+                {categoryName}
               </button>
             ))}
           </div>
           <div className="product-grid" role="tabpanel">
-            {category.products.map((product) => (
+            {categoryProducts.map((product) => (
               <button
                 className="product-option"
                 key={product.id}
@@ -295,6 +476,9 @@ function CashierView({ activeBox, onBack, onOpenBox, onCloseBox, onRegisterSale,
                 <span className="product-add"><Plus size={17} /></span>
               </button>
             ))}
+            {categoryProducts.length === 0 && (
+              <p className="menu-empty">Todavía no hay productos en esta categoría.</p>
+            )}
           </div>
         </section>
 

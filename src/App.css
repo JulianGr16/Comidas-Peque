@@ -667,6 +667,154 @@
 	font-weight: 600;
 }
 
+.menu-edit-toggle {
+	min-height: 34px;
+	padding-inline: 10px;
+	border-color: #465449;
+	color: #c6d3c8;
+	background: #202b24;
+	font-size: 10px;
+}
+
+.menu-edit-toggle:hover {
+	border-color: #829785;
+	background: #29372d;
+}
+
+.menu-editor {
+	display: grid;
+	gap: 11px;
+	margin-top: 15px;
+	padding: 14px;
+	border: 1px solid #3b4b3f;
+	border-radius: 6px;
+	background: #18231c;
+}
+
+.menu-editor > .eyebrow {
+	color: #b6c9b8;
+}
+
+.menu-editor-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(110px, 0.5fr);
+	gap: 10px;
+}
+
+.menu-editor-submit {
+	justify-self: start;
+}
+
+.recipe-editor {
+	display: grid;
+	gap: 9px;
+	padding-top: 12px;
+	border-top: 1px solid #344138;
+}
+
+.recipe-editor-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.recipe-editor-heading > div {
+	display: grid;
+	gap: 3px;
+}
+
+.recipe-editor-heading > div strong {
+	font-size: 11px;
+}
+
+.recipe-editor-heading > div span,
+.recipe-empty,
+.recipe-warning,
+.recipe-cost {
+	color: #aebbb1;
+	font-size: 10px;
+}
+
+.recipe-empty,
+.recipe-warning,
+.recipe-cost {
+	margin: 0;
+	line-height: 1.5;
+}
+
+.recipe-warning {
+	color: #e5c587;
+}
+
+.recipe-cost strong {
+	color: #a9d1a9;
+	font-size: 12px;
+}
+
+.add-recipe-item {
+	min-height: 31px;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 0 8px;
+	border: 1px solid #46574a;
+	border-radius: 5px;
+	color: #c7d5c9;
+	background: #202b24;
+	font-size: 10px;
+	cursor: pointer;
+}
+
+.add-recipe-item:hover {
+	border-color: #809683;
+}
+
+.recipe-row {
+	position: relative;
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(70px, 0.55fr) minmax(75px, 0.55fr) 30px;
+	align-items: end;
+	gap: 8px;
+	padding: 9px;
+	border: 1px solid #35443a;
+	border-radius: 5px;
+}
+
+.recipe-row .expense-field {
+	font-size: 9px;
+}
+
+.recipe-row .expense-field > input,
+.recipe-row .expense-field > select,
+.recipe-row .amount-input-wrap,
+.recipe-row .amount-input-wrap input {
+	min-height: 34px;
+}
+
+.remove-recipe-item {
+	width: 30px;
+	height: 34px;
+	display: grid;
+	place-items: center;
+	border: 0;
+	border-radius: 5px;
+	color: #d59688;
+	background: transparent;
+	cursor: pointer;
+}
+
+.remove-recipe-item:hover {
+	background: #382724;
+}
+
+.menu-empty {
+	grid-column: 1 / -1;
+	margin: 8px 0;
+	color: #9eaca1;
+	font-size: 11px;
+}
+
 .category-list {
 	display: flex;
 	gap: 7px;
@@ -1969,6 +2117,23 @@
 
 	.product-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.menu-editor-fields {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.recipe-row {
+		grid-template-columns: minmax(0, 1fr) minmax(74px, 0.65fr) 30px;
+	}
+
+	.recipe-row .expense-field:first-child {
+		grid-column: 1 / -1;
+	}
+
+	.menu-editor-submit {
+		width: 100%;
+		justify-self: stretch;
 	}
 
 	.work-heading {

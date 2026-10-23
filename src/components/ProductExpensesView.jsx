@@ -12,6 +12,15 @@ const categories = [
   'Otros',
 ]
 
+const units = [
+  { value: 'kg', label: 'kg' },
+  { value: 'g', label: 'g' },
+  { value: 'litro', label: 'litro' },
+  { value: 'ml', label: 'ml' },
+  { value: 'unidad', label: 'unidad' },
+  { value: 'paquete', label: 'paquete' },
+]
+
 function getTodayLocalDate() {
   const today = new Date()
   const year = today.getFullYear()
@@ -28,6 +37,8 @@ function getPurchaseItems(purchase) {
     name: purchase.name,
     category: purchase.category,
     amount: purchase.amount,
+    quantity: null,
+    unit: null,
   }]
 }
 
@@ -37,7 +48,7 @@ function getPurchaseTotal(purchase) {
 
 function ProductExpensesView({ purchases, onAddPurchase, onDeletePurchase, onBack }) {
   const [items, setItems] = useState([
-    { id: 0, name: '', category: categories[0], amount: '' },
+    { id: 0, name: '', category: categories[0], amount: '', quantity: '', unit: 'kg' },
   ])
   const [nextItemId, setNextItemId] = useState(1)
   const [purchaseDate, setPurchaseDate] = useState(getTodayLocalDate)
@@ -64,7 +75,7 @@ function ProductExpensesView({ purchases, onAddPurchase, onDeletePurchase, onBac
   const addItem = () => {
     setItems((current) => [
       ...current,
-      { id: nextItemId, name: '', category: categories[0], amount: '' },
+      { id: nextItemId, name: '', category: categories[0], amount: '', quantity: '', unit: 'kg' },
     ])
     setNextItemId((current) => current + 1)
   }
@@ -90,12 +101,15 @@ function ProductExpensesView({ purchases, onAddPurchase, onDeletePurchase, onBac
       name: item.name.trim(),
       category: item.category,
       amount: Number(item.amount),
+      quantity: Number(item.quantity),
+      unit: item.unit,
     }))
 
     if (purchaseItems.some((item) => (
       !item.name || !Number.isFinite(item.amount) || item.amount <= 0
+      || !Number.isFinite(item.quantity) || item.quantity <= 0 || !item.unit
     )) || !purchaseDate) {
-      setFeedback('Completa cada producto con su categoría y un importe mayor a cero.')
+      setFeedback('Completa cada insumo con cantidad, unidad e importe total mayor a cero.')
       return
     }
 
@@ -103,7 +117,7 @@ function ProductExpensesView({ purchases, onAddPurchase, onDeletePurchase, onBac
       items: purchaseItems,
       purchasedAt: new Date(`${purchaseDate}T12:00:00`).toISOString(),
     })
-    setItems([{ id: nextItemId, name: '', category: categories[0], amount: '' }])
+    setItems([{ id: nextItemId, name: '', category: categories[0], amount: '', quantity: '', unit: 'kg' }])
     setNextItemId((current) => current + 1)
     setFeedback('Compra registrada en una tarjeta.')
   }
@@ -185,6 +199,27 @@ function ProductExpensesView({ purchases, onAddPurchase, onDeletePurchase, onBac
                     </span>
                   </label>
                 </div>
+                <div className="expense-form-row">
+                  <label className="expense-field">
+                    <span>Cantidad comprada</span>
+                    <input
+                      inputMode="decimal"
+                      min="0.001"
+                      onChange={(event) => updateItem(item.id, 'quantity', event.target.value)}
+                      placeholder="Ej. 2"
+                      required
+                      step="any"
+                      type="number"
+                      value={item.quantity}
+                    />
+                  </label>
+                  <label className="expense-field">
+                    <span>Unidad</span>
+                    <select value={item.unit} onChange={(event) => updateItem(item.id, 'unit', event.target.value)}>
+                      {units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}
+                    </select>
+                  </label>
+                </div>
               </fieldset>
             ))}
           </div>
@@ -250,7 +285,10 @@ function ProductExpensesView({ purchases, onAddPurchase, onDeletePurchase, onBac
                       <div className="expense-purchase-item" key={item.id ?? `${purchase.id}-${index}`}>
                         <div>
                           <strong>{item.name}</strong>
-                          <span>{item.category}</span>
+                          <span>
+                            {item.category}
+                            {item.quantity && item.unit ? ` · ${item.quantity} ${item.unit}` : ' · cantidad no registrada'}
+                          </span>
                         </div>
                         <strong>{formatCurrency(item.amount)}</strong>
                       </div>

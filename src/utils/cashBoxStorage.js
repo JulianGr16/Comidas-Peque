@@ -1,10 +1,12 @@
 import { openDB } from 'idb'
+import { defaultCashMenuProducts } from './cashMenu.js'
 
 const DATABASE_NAME = 'comidaspeque-local'
 const DATABASE_VERSION = 1
 const STORE_NAME = 'app-state'
 const CASH_BOXES_KEY = 'cashBoxes'
 const PURCHASES_KEY = 'productPurchases'
+const CASH_MENU_KEY = 'cashMenuProducts'
 const LEGACY_STORAGE_KEY = 'comidaspeque.cashboxes.v1'
 
 let databasePromise
@@ -74,4 +76,15 @@ export async function loadProductPurchases() {
 export async function saveProductPurchases(purchases) {
   const database = await getDatabase()
   await database.put(STORE_NAME, purchases, PURCHASES_KEY)
+}
+
+export async function loadCashMenuProducts() {
+  const database = await getDatabase()
+  const products = await database.get(STORE_NAME, CASH_MENU_KEY)
+  return Array.isArray(products) ? products : defaultCashMenuProducts.map((product) => ({ ...product }))
+}
+
+export async function saveCashMenuProducts(products) {
+  const database = await getDatabase()
+  await database.put(STORE_NAME, products, CASH_MENU_KEY)
 }

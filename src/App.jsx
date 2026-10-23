@@ -14,8 +14,10 @@ import ProductExpensesView from './components/ProductExpensesView.jsx'
 import SalesStatisticsView from './components/SalesStatisticsView.jsx'
 import {
   loadCashBoxes,
+  loadCashMenuProducts,
   loadProductPurchases,
   saveCashBoxes,
+  saveCashMenuProducts,
   saveProductPurchases,
 } from './utils/cashBoxStorage.js'
 
@@ -68,6 +70,7 @@ function getPageFromHash() {
 function App() {
   const [page, setPage] = useState(getPageFromHash)
   const [cashBoxes, setCashBoxes] = useState([])
+  const [cashMenuProducts, setCashMenuProducts] = useState([])
   const [productPurchases, setProductPurchases] = useState([])
   const [storageStatus, setStorageStatus] = useState('loading')
 
@@ -80,11 +83,12 @@ function App() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([loadCashBoxes(), loadProductPurchases()])
-      .then(([storedCashBoxes, storedPurchases]) => {
+    Promise.all([loadCashBoxes(), loadProductPurchases(), loadCashMenuProducts()])
+      .then(([storedCashBoxes, storedPurchases, storedMenuProducts]) => {
         if (cancelled) return
         setCashBoxes(storedCashBoxes)
         setProductPurchases(storedPurchases)
+        setCashMenuProducts(storedMenuProducts)
         setStorageStatus('ready')
       })
       .catch(() => {
@@ -107,6 +111,12 @@ function App() {
 
     saveProductPurchases(productPurchases).catch(() => setStorageStatus('error'))
   }, [productPurchases, storageStatus])
+
+  useEffect(() => {
+    if (storageStatus !== 'ready') return
+
+    saveCashMenuProducts(cashMenuProducts).catch(() => setStorageStatus('error'))
+  }, [cashMenuProducts, storageStatus])
 
   const activeBox = cashBoxes.find((cashBox) => !cashBox.closedAt) ?? null
 
@@ -156,6 +166,24 @@ function App() {
     )))
 
     return sale
+  }
+
+  const addCashMenuProduct = ({ name, price, category }) => {
+    const product = {
+      id: `custom-${Date.now()}`,
+      name: name.trim(),
+      price,
+      category: category || 'Comidas varias',
+    }
+
+    setCashMenuProducts((current) => [...current, product])
+    return product
+  }
+
+  const updateCashMenuProduct = (productId, changes) => {
+    setCashMenuProducts((current) => current.map((product) => (
+      product.id === productId ? { ...product, ...changes } : product
+    )))
   }
 
   const registerCashExpense = (concept, amount) => {
@@ -274,11 +302,15 @@ function App() {
       {page === 'cashier' && (
         <CashierView
           activeBox={activeBox}
+          menuProducts={cashMenuProducts}
+          productPurchases={productPurchases}
           onBack={() => navigateTo('home')}
           onOpenBox={openCashBox}
           onCloseBox={closeCashBox}
           onRegisterSale={registerSale}
           onRegisterCashExpense={registerCashExpense}
+          onAddMenuProduct={addCashMenuProduct}
+          onUpdateMenuProduct={updateCashMenuProduct}
         />
       )}
 

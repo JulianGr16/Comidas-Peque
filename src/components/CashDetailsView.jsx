@@ -9,6 +9,13 @@ function getBoxTotal(cashBox) {
   ), 0)
 }
 
+function getBoxCashSalesTotal(cashBox) {
+  return cashBox.sales.reduce((total, sale) => {
+    if (sale.paymentMethod !== 'efectivo') return total
+    return total + sale.items.reduce((saleTotal, item) => saleTotal + item.price * item.quantity, 0)
+  }, 0)
+}
+
 function getBoxExpenses(cashBox) {
   return cashBox.expenses ?? []
 }
@@ -108,6 +115,8 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
             const expenses = getBoxExpenses(cashBox)
             const expenseTotal = getBoxExpenseTotal(cashBox)
             const netTotal = total - expenseTotal
+            const openingCashAmount = Number(cashBox.openingCashAmount) || 0
+            const expectedCash = openingCashAmount + getBoxCashSalesTotal(cashBox) - expenseTotal
             const itemCount = cashBox.sales.reduce((sum, sale) => (
               sum + sale.items.reduce((saleCount, item) => saleCount + item.quantity, 0)
             ), 0)
@@ -160,6 +169,14 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
                     <span>Productos</span>
                     <strong>{itemCount}</strong>
                   </div>
+                  <div className="box-number-metric">
+                    <span>Monto inicial</span>
+                    <strong>{formatCurrency(openingCashAmount)}</strong>
+                  </div>
+                  <div className="box-number-metric">
+                    <span>Efectivo esperado</span>
+                    <strong>{formatCurrency(expectedCash)}</strong>
+                  </div>
                   <div className="box-number-metric total-metric">
                     <span>Total vendido</span>
                     <strong>{formatCurrency(total)}</strong>
@@ -174,6 +191,42 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
                   </div>
                 </div>
 
+                {cashBox.profitSummary && (
+                  <div className="sales-list">
+                    <h3><CircleDollarSign size={16} /> Ganancia estimada del turno al cierre</h3>
+                    <div className="sale-row">
+                      <div><strong>Ganancia estimada de productos</strong></div>
+                      <strong>{cashBox.profitSummary.grossProfit === null
+                        ? 'Costo incompleto'
+                        : formatCurrency(cashBox.profitSummary.grossProfit)}</strong>
+                    </div>
+                    <div className="sale-row">
+                      <div><strong>Ganancia neta estimada después de gastos varios</strong></div>
+                      <strong>{cashBox.profitSummary.netProfit === null
+                        ? 'No disponible'
+                        : formatCurrency(cashBox.profitSummary.netProfit)}</strong>
+                    </div>
+                    {!cashBox.profitSummary.allCostsComplete && (
+                      <p className="recipe-warning">
+                        Falta configurar la receta o el costo de uno o más productos vendidos. La ganancia total no está completa.
+                      </p>
+                    )}
+                    {cashBox.profitSummary.products.map((product) => (
+                      <div className="sale-row" key={product.id ?? product.name}>
+                        <div>
+                          <strong>{product.name} · {product.quantity} u.</strong>
+                          <span>Venta: {formatCurrency(product.revenue)} · Costo: {product.cost === null
+                            ? 'sin configurar'
+                            : formatCurrency(product.cost)}</span>
+                        </div>
+                        <strong>{product.profit === null
+                          ? 'Ganancia no disponible'
+                          : formatCurrency(product.profit)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {cashBox.sales.length > 0 && (
                   <div className="sales-list">
                     <h3><ReceiptText size={16} /> Ventas de esta caja</h3>
@@ -184,7 +237,13 @@ function CashDetailsView({ cashBoxes, onBack, onDeleteCashBox }) {
                         <div className="sale-row" key={sale.id}>
                           <div>
                             <strong>{formatDateTime(sale.soldAt)}</strong>
-                            <span>{itemsLabel}</span>
+                          <span>{itemsLabel} · Pago: {sale.paymentMethod === 'efectivo'
+                            ? 'Efectivo'
+                            : sale.paymentMethod === 'transferencia'
+                              ? 'Transferencia'
+                              : sale.paymentMethod === 'cuenta-corriente'
+                              ? `Cuenta corriente${sale.accountPaidAt ? ' · Pagada' : ' · Pendiente'} · ${sale.customer?.fullName || 'Cliente sin nombre'} · DNI ${sale.customer?.dni || 'Sin dato'} · Cel. ${sale.customer?.phone || 'Sin dato'}`
+                                : 'Sin especificar'}</span>
                           </div>
                           <strong>{formatCurrency(saleTotal)}</strong>
                         </div>

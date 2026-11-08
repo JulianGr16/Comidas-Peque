@@ -7,7 +7,46 @@ const STORE_NAME = 'app-state'
 const CASH_BOXES_KEY = 'cashBoxes'
 const PURCHASES_KEY = 'productPurchases'
 const CASH_MENU_KEY = 'cashMenuProducts'
+const CASH_MENU_RECIPE_MIGRATION_KEY = 'cashMenuRecipeDefaultsV2'
 const LEGACY_STORAGE_KEY = 'comidaspeque.cashboxes.v1'
+
+const previousDefaultRecipes = new Map([
+  ['burger-clasica', [
+    { name: 'Carne', quantity: 0.2, unit: 'kg' }, { name: 'Lechuga', quantity: 0.015, unit: 'kg' },
+    { name: 'Tomate', quantity: 0.03, unit: 'kg' }, { name: 'Cebolla', quantity: 0.02, unit: 'kg' },
+    { name: 'Papas', quantity: 0.2, unit: 'kg' },
+  ]],
+  ['burger-especial', [
+    { name: 'Carne', quantity: 0.2, unit: 'kg' }, { name: 'Lechuga', quantity: 0.015, unit: 'kg' },
+    { name: 'Tomate', quantity: 0.03, unit: 'kg' }, { name: 'Cebolla', quantity: 0.02, unit: 'kg' },
+    { name: 'Jamón', quantity: 0.02, unit: 'kg' }, { name: 'Huevo', quantity: 1, unit: 'unidad' },
+    { name: 'Cheddar', quantity: 0.03, unit: 'kg' }, { name: 'Papas', quantity: 0.2, unit: 'kg' },
+  ]],
+  ['peque-burger-2', [
+    { name: 'Carne', quantity: 0.2, unit: 'kg' }, { name: 'Cheddar', quantity: 0.03, unit: 'kg' },
+    { name: 'Cebolla', quantity: 0.03, unit: 'kg' }, { name: 'Papas', quantity: 0.2, unit: 'kg' },
+  ]],
+  ['peque-burger-3', [
+    { name: 'Carne', quantity: 0.3, unit: 'kg' }, { name: 'Cheddar', quantity: 0.03, unit: 'kg' },
+    { name: 'Cebolla', quantity: 0.03, unit: 'kg' }, { name: 'Papas', quantity: 0.2, unit: 'kg' },
+  ]],
+  ['bacon-burger', [
+    { name: 'Carne', quantity: 0.2, unit: 'kg' }, { name: 'Bacon', quantity: 0.03, unit: 'kg' },
+    { name: 'Cheddar', quantity: 0.03, unit: 'kg' }, { name: 'Cebolla', quantity: 0.03, unit: 'kg' },
+    { name: 'Papas', quantity: 0.2, unit: 'kg' },
+  ]],
+  ['medallon', [{ name: 'Carne', quantity: 0.1, unit: 'kg' }]],
+  ['napolitana-2', [
+    { name: 'Milanesa', quantity: 0.36, unit: 'kg' }, { name: 'Queso cremoso', quantity: 0.12, unit: 'kg' },
+    { name: 'Jamón', quantity: 0.04, unit: 'kg' }, { name: 'Tomate', quantity: 0.08, unit: 'kg' },
+    { name: 'Papas', quantity: 0.4, unit: 'kg' },
+  ]],
+  ['napolitana-3', [
+    { name: 'Milanesa', quantity: 0.54, unit: 'kg' }, { name: 'Queso cremoso', quantity: 0.18, unit: 'kg' },
+    { name: 'Jamón', quantity: 0.06, unit: 'kg' }, { name: 'Tomate', quantity: 0.12, unit: 'kg' },
+    { name: 'Papas', quantity: 0.6, unit: 'kg' },
+  ]],
+])
 
 let databasePromise
 
@@ -81,7 +120,32 @@ export async function saveProductPurchases(purchases) {
 export async function loadCashMenuProducts() {
   const database = await getDatabase()
   const products = await database.get(STORE_NAME, CASH_MENU_KEY)
-  return Array.isArray(products) ? products : defaultCashMenuProducts.map((product) => ({ ...product }))
+  const recipeDefaultsApplied = await database.get(STORE_NAME, CASH_MENU_RECIPE_MIGRATION_KEY)
+  if (recipeDefaultsApplied && Array.isArray(products)) return products
+
+  const storedProducts = Array.isArray(products) ? products : []
+  const defaultsById = new Map(defaultCashMenuProducts.map((product) => [product.id, product]))
+  const existingProductIds = new Set(storedProducts.map((product) => product.id))
+  const mergedProducts = storedProducts.map((product) => {
+    const defaultProduct = defaultsById.get(product.id)
+    if (!defaultProduct?.recipe?.length) return product
+    const previousRecipe = previousDefaultRecipes.get(product.id)
+    const hasPreviousDefaultRecipe = previousRecipe
+      && JSON.stringify(product.recipe) === JSON.stringify(previousRecipe)
+    if (product.recipe?.length && !hasPreviousDefaultRecipe) return product
+    return { ...product, recipe: defaultProduct.recipe.map((item) => ({ ...item })) }
+  })
+  const newlyAddedDefaults = defaultCashMenuProducts
+    .filter((product) => !existingProductIds.has(product.id))
+    .map((product) => ({
+      ...product,
+      recipe: (product.recipe ?? []).map((item) => ({ ...item })),
+    }))
+  const mergedMenu = [...mergedProducts, ...newlyAddedDefaults]
+
+  await database.put(STORE_NAME, mergedMenu, CASH_MENU_KEY)
+  await database.put(STORE_NAME, true, CASH_MENU_RECIPE_MIGRATION_KEY)
+  return mergedMenu
 }
 
 export async function saveCashMenuProducts(products) {

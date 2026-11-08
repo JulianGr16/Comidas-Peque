@@ -35,6 +35,10 @@ function CashierView({
   const [feedback, setFeedback] = useState('')
   const [lastSale, setLastSale] = useState(null)
   const [ticketFeedback, setTicketFeedback] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const [openingCashAmount, setOpeningCashAmount] = useState('')
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
+  const [accountCustomer, setAccountCustomer] = useState({ fullName: '', dni: '', phone: '' })
   const [cashExpenseConcept, setCashExpenseConcept] = useState('')
   const [cashExpenseAmount, setCashExpenseAmount] = useState('')
   const [cashExpenseFeedback, setCashExpenseFeedback] = useState('')
@@ -74,8 +78,15 @@ function CashierView({
     const product = menuProducts.find((item) => item.id === productId)
     setMenuProductName(product?.name ?? '')
     setMenuProductPrice(product ? `${product.price}` : '')
-    setRecipeItems((product?.recipe ?? []).map((item, index) => ({ ...item, id: index })))
-    setNextRecipeItemId((product?.recipe?.length ?? 0) + 1)
+    const recipe = Array.isArray(product?.recipe) ? product.recipe : []
+    setRecipeItems(recipe.map((item, index) => ({
+      ...item,
+      id: index,
+      name: typeof item.name === 'string' ? item.name : '',
+      quantity: item.quantity ?? '',
+      unit: item.unit || 'kg',
+    })))
+    setNextRecipeItemId(recipe.length)
     if (product) setSelectedCategory(product.category)
   }
 
@@ -109,7 +120,7 @@ function CashierView({
 
     const recipe = recipeItems.map((item) => ({
       name: item.name.trim(),
-      quantity: Number(item.quantity),
+      quantity: Number(String(item.quantity).replace(',', '.')),
       unit: item.unit,
     }))
     if (recipe.some((item) => !item.name || !Number.isFinite(item.quantity) || item.quantity <= 0)) {
@@ -117,13 +128,20 @@ function CashierView({
       return
     }
 
-    if (selectedMenuProduct === 'new') {
-      const product = onAddMenuProduct({ name, price, category: 'Comidas varias', recipe })
-      setSelectedCategory(product.category)
-      setMenuFeedback('Producto agregado a Comidas varias.')
-    } else {
-      onUpdateMenuProduct(selectedMenuProduct, { name, price, recipe })
-      setMenuFeedback('Producto actualizado.')
+    try {
+      if (selectedMenuProduct === 'new') {
+        const product = onAddMenuProduct({ name, price, category: 'Comidas varias', recipe })
+        if (!product) throw new Error('No se pudo crear el producto')
+        setSelectedCategory(product.category)
+        setMenuFeedback('Producto agregado a Comidas varias.')
+      } else {
+        const updated = onUpdateMenuProduct(selectedMenuProduct, { name, price, recipe })
+        if (updated === false) throw new Error('No se pudo actualizar el producto')
+        setMenuFeedback('Producto actualizado.')
+      }
+    } catch {
+      setMenuFeedback('No se pudo guardar el producto. Revisa los datos e inténtalo nuevamente.')
+      return
     }
 
     setSelectedMenuProduct('new')
@@ -148,15 +166,46 @@ function CashierView({
     }
     if (cart.length === 0) return
 
-    const sale = onRegisterSale(cart)
+    if (!paymentMethod) {
+      setFeedback('Elige si el pago es en efectivo o por transferencia.')
+      return
+    }
+
+    const sale = onRegisterSale(cart, paymentMethod)
     if (!sale) {
       setFeedback('No se pudo registrar la venta. Verifica que la caja siga abierta.')
       return
     }
 
     setCart([])
+    setPaymentMethod('')
     setLastSale(sale)
     setFeedback('Venta registrada correctamente. Ticket listo.')
+  }
+
+  const finalizeAccountSale = (event) => {
+    event.preventDefault()
+    if (!activeBox || cart.length === 0) return
+
+    const customer = {
+      fullName: accountCustomer.fullName.trim(),
+      dni: accountCustomer.dni.trim(),
+      phone: accountCustomer.phone.trim(),
+    }
+    if (!customer.fullName || !customer.dni || !customer.phone) return
+
+    const sale = onRegisterSale(cart, 'cuenta-corriente', customer)
+    if (!sale) {
+      setFeedback('No se pudo cargar la cuenta corriente. Verifica que la caja siga abierta.')
+      return
+    }
+
+    setCart([])
+    setPaymentMethod('')
+    setAccountCustomer({ fullName: '', dni: '', phone: '' })
+    setIsAccountModalOpen(false)
+    setLastSale(sale)
+    setFeedback('Fiado cargado en cuenta corriente y registrado en la caja.')
   }
 
   const downloadTicket = () => {
@@ -201,6 +250,19 @@ function CashierView({
     setFeedback('Caja cerrada y registrada.')
   }
 
+  const openBox = (event) => {
+    event.preventDefault()
+    const amount = Number(openingCashAmount)
+    if (!Number.isFinite(amount) || amount < 0) {
+      setFeedback('Ingresa un monto inicial válido, aunque sea cero.')
+      return
+    }
+
+    onOpenBox(amount)
+    setOpeningCashAmount('')
+    setFeedback('Caja abierta con el monto inicial registrado.')
+  }
+
   return (
     <section className="work-section">
       <button className="back-button" type="button" onClick={onBack}>
@@ -225,7 +287,7 @@ function CashierView({
             <strong>{activeBox ? 'Turno en curso' : 'No hay una caja abierta'}</strong>
             <span>
               {activeBox
-                ? `Abierta el ${formatDateTime(activeBox.openedAt)}`
+                ? `Abierta el ${formatDateTime(activeBox.openedAt)} · Monto inicial: ${formatCurrency(activeBox.openingCashAmount ?? 0)}`
                 : 'Abre la caja para habilitar la facturación.'}
             </span>
           </div>
@@ -235,9 +297,27 @@ function CashierView({
             <LockKeyhole size={17} /> Cerrar caja
           </button>
         ) : (
-          <button className="button primary" type="button" onClick={onOpenBox}>
-            <UnlockKeyhole size={17} /> Abrir caja
-          </button>
+          <form className="cash-open-form" onSubmit={openBox}>
+            <label className="expense-field">
+              <span>Efectivo inicial (sobrante del turno anterior)</span>
+              <span className="amount-input-wrap">
+                <span>$</span>
+                <input
+                  inputMode="decimal"
+                  min="0"
+                  onChange={(event) => setOpeningCashAmount(event.target.value)}
+                  placeholder="0"
+                  required
+                  step="1"
+                  type="number"
+                  value={openingCashAmount}
+                />
+              </span>
+            </label>
+            <button className="button primary" type="submit">
+              <UnlockKeyhole size={17} /> Abrir caja
+            </button>
+          </form>
         )}
       </div>
 
@@ -365,6 +445,7 @@ function CashierView({
                 </label>
               </div>
               <div className="recipe-editor">
+                <p className="recipe-warning">Costo estándar aproximado: se consideran los insumos principales, con 120 g por medallón y 200 g de papas por porción. Puedes ajustar las cantidades. Los nombres deben coincidir con Gastos de productos; se omiten verduras, sal, aderezos y salsas.</p>
                 <div className="recipe-editor-heading">
                   <div>
                     <strong>Receta por porción</strong>
@@ -390,7 +471,12 @@ function CashierView({
                         required
                       >
                         <option value="">Elegir insumo</option>
-                        {ingredientOptions.map((ingredient) => (
+                        {[...new Map([
+                          ...ingredientOptions.map((ingredient) => [ingredient.name.toLocaleLowerCase('es'), ingredient]),
+                          ...(item.name && !ingredientOptions.some((ingredient) => ingredient.name.toLocaleLowerCase('es') === item.name.toLocaleLowerCase('es'))
+                            ? [[item.name.toLocaleLowerCase('es'), { id: item.name.toLocaleLowerCase('es'), name: item.name }]]
+                            : []),
+                        ]).values()].map((ingredient) => (
                           <option key={ingredient.id} value={ingredient.name}>{ingredient.name}</option>
                         ))}
                       </select>
@@ -431,11 +517,22 @@ function CashierView({
                 ))}
                 {selectedMenuProduct !== 'new' && (() => {
                   const product = menuProducts.find((item) => item.id === selectedMenuProduct)
-                  const costing = product ? getRecipeUnitCost({ ...product, recipe }, productPurchases) : null
+                  const costing = product
+                    ? getRecipeUnitCost({ ...product, recipe: recipeItems }, productPurchases)
+                    : null
                   if (!costing) return null
-                  return costing.complete
-                    ? <p className="recipe-cost">Costo estimado por porción: <strong>{formatCurrency(costing.cost)}</strong></p>
-                    : <p className="recipe-warning">Costo incompleto: falta registrar cantidad/unidad comprada de {costing.missingIngredients.join(', ')}.</p>
+                  if (costing.complete) {
+                    const estimatedProfit = Number(menuProductPrice) - costing.cost
+                    return (
+                      <div className="recipe-cost-summary">
+                        <p className="recipe-cost">Costo estimado por porción: <strong>{formatCurrency(costing.cost)}</strong></p>
+                        {Number(menuProductPrice) > 0 && (
+                          <p className="recipe-cost">Ganancia estimada por porción: <strong>{formatCurrency(estimatedProfit)}</strong></p>
+                        )}
+                      </div>
+                    )
+                  }
+                  return <p className="recipe-warning">Costo incompleto: falta registrar cantidad/unidad comprada de {costing.missingIngredients.join(', ')}.</p>
                 })()}
               </div>
               <button className="button primary menu-editor-submit" type="submit">
@@ -523,13 +620,33 @@ function CashierView({
             <span>Total</span>
             <strong>{formatCurrency(total)}</strong>
           </div>
+          <label className="payment-method-field">
+            <span>Medio de pago</span>
+            <select
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              disabled={!activeBox || cart.length === 0}
+            >
+              <option value="">Elegir medio de pago</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+            </select>
+          </label>
           <button
             className="button primary checkout-button"
             type="button"
-            disabled={!activeBox || cart.length === 0}
+            disabled={!activeBox || cart.length === 0 || !paymentMethod}
             onClick={finalizeSale}
           >
             <Check size={17} /> Facturar venta
+          </button>
+          <button
+            className="button secondary account-charge-button"
+            type="button"
+            disabled={!activeBox || cart.length === 0}
+            onClick={() => setIsAccountModalOpen(true)}
+          >
+            Cargar cta cte
           </button>
           {!activeBox && <p className="checkout-hint">La caja debe estar abierta para facturar.</p>}
           {feedback && <p className="feedback-message" role="status">{feedback}</p>}
@@ -552,6 +669,34 @@ function CashierView({
           )}
         </aside>
       </div>
+      {isAccountModalOpen && (
+        <div className="modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setIsAccountModalOpen(false)
+        }}>
+          <form className="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title" onSubmit={finalizeAccountSale}>
+            <button className="modal-close" type="button" aria-label="Cerrar" onClick={() => setIsAccountModalOpen(false)}>×</button>
+            <p className="eyebrow">VENTA FIADA</p>
+            <h2 id="account-modal-title">Cargar en cuenta corriente</h2>
+            <p className="work-subtitle">Total del pedido: <strong>{formatCurrency(total)}</strong></p>
+            <label className="expense-field">
+              <span>Nombre y apellido</span>
+              <input autoComplete="name" maxLength={120} required value={accountCustomer.fullName} onChange={(event) => setAccountCustomer((current) => ({ ...current, fullName: event.target.value }))} />
+            </label>
+            <label className="expense-field">
+              <span>DNI</span>
+              <input autoComplete="off" inputMode="numeric" maxLength={20} required value={accountCustomer.dni} onChange={(event) => setAccountCustomer((current) => ({ ...current, dni: event.target.value }))} />
+            </label>
+            <label className="expense-field">
+              <span>Celular</span>
+              <input autoComplete="tel" inputMode="tel" maxLength={30} required value={accountCustomer.phone} onChange={(event) => setAccountCustomer((current) => ({ ...current, phone: event.target.value }))} />
+            </label>
+            <div className="modal-actions">
+              <button className="button secondary" type="button" onClick={() => setIsAccountModalOpen(false)}>Cancelar</button>
+              <button className="button primary" type="submit">Guardar fiado</button>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   )
 }

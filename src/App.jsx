@@ -5,10 +5,12 @@ import {
   ChartNoAxesColumnIncreasing,
   CookingPot,
   CreditCard,
+  HandCoins,
   ReceiptText,
   WalletCards,
 } from 'lucide-react'
 import CashDetailsView from './components/CashDetailsView.jsx'
+import CurrentAccountView from './components/CurrentAccountView.jsx'
 import CashierView from './components/CashierView.jsx'
 import ProductExpensesView from './components/ProductExpensesView.jsx'
 import SalesStatisticsView from './components/SalesStatisticsView.jsx'
@@ -20,6 +22,7 @@ import {
   saveCashMenuProducts,
   saveProductPurchases,
 } from './utils/cashBoxStorage.js'
+import { calculateCashBoxProfit } from './utils/salesProfit.js'
 
 const modules = [
   {
@@ -58,11 +61,20 @@ const modules = [
     color: 'gold',
     view: 'details',
   },
+  {
+    number: '05',
+    title: 'Cuenta corriente',
+    description: 'Consulta los fiados y los datos de tus clientes.',
+    category: 'CLIENTES',
+    icon: HandCoins,
+    color: 'gold',
+    view: 'account',
+  },
 ]
 
 function getPageFromHash() {
   const page = window.location.hash.slice(1)
-  return page === 'cashier' || page === 'details' || page === 'stats' || page === 'expenses'
+  return page === 'cashier' || page === 'details' || page === 'stats' || page === 'expenses' || page === 'account'
     ? page
     : 'home'
 }
@@ -73,6 +85,7 @@ function App() {
   const [cashMenuProducts, setCashMenuProducts] = useState([])
   const [productPurchases, setProductPurchases] = useState([])
   const [storageStatus, setStorageStatus] = useState('loading')
+  const [storageWarning, setStorageWarning] = useState('')
 
   useEffect(() => {
     const syncPageWithHash = () => setPage(getPageFromHash())
@@ -103,19 +116,25 @@ function App() {
   useEffect(() => {
     if (storageStatus !== 'ready') return
 
-    saveCashBoxes(cashBoxes).catch(() => setStorageStatus('error'))
+    saveCashBoxes(cashBoxes).then(() => setStorageWarning('')).catch(() => {
+      setStorageWarning('No se pudieron guardar los últimos cambios. No cierres esta pestaña y vuelve a intentarlo.')
+    })
   }, [cashBoxes, storageStatus])
 
   useEffect(() => {
     if (storageStatus !== 'ready') return
 
-    saveProductPurchases(productPurchases).catch(() => setStorageStatus('error'))
+    saveProductPurchases(productPurchases).then(() => setStorageWarning('')).catch(() => {
+      setStorageWarning('No se pudieron guardar los últimos cambios. No cierres esta pestaña y vuelve a intentarlo.')
+    })
   }, [productPurchases, storageStatus])
 
   useEffect(() => {
     if (storageStatus !== 'ready') return
 
-    saveCashMenuProducts(cashMenuProducts).catch(() => setStorageStatus('error'))
+    saveCashMenuProducts(cashMenuProducts).then(() => setStorageWarning('')).catch(() => {
+      setStorageWarning('No se pudieron guardar los últimos cambios. No cierres esta pestaña y vuelve a intentarlo.')
+    })
   }, [cashMenuProducts, storageStatus])
 
   const activeBox = cashBoxes.find((cashBox) => !cashBox.closedAt) ?? null
@@ -129,12 +148,14 @@ function App() {
     window.location.hash = nextHash
   }
 
-  const openCashBox = () => {
+  const openCashBox = (openingCashAmount) => {
     if (activeBox) return
+    if (!Number.isFinite(openingCashAmount) || openingCashAmount < 0) return
 
     setCashBoxes((current) => [{
       id: `${Date.now()}`,
       openedAt: new Date().toISOString(),
+      openingCashAmount,
       closedAt: null,
       sales: [],
       expenses: [],
@@ -145,17 +166,20 @@ function App() {
     if (!activeBox) return
 
     const closedAt = new Date().toISOString()
+    const profitSummary = calculateCashBoxProfit(activeBox, cashMenuProducts, productPurchases)
     setCashBoxes((current) => current.map((cashBox) => (
-      cashBox.id === activeBox.id ? { ...cashBox, closedAt } : cashBox
+      cashBox.id === activeBox.id ? { ...cashBox, closedAt, profitSummary } : cashBox
     )))
   }
 
-  const registerSale = (items) => {
+  const registerSale = (items, paymentMethod, customer = null) => {
     if (!activeBox || items.length === 0) return false
 
     const sale = {
       id: `${Date.now()}`,
       soldAt: new Date().toISOString(),
+      paymentMethod,
+      ...(customer ? { customer } : {}),
       items: items.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
     }
 
@@ -168,12 +192,13 @@ function App() {
     return sale
   }
 
-  const addCashMenuProduct = ({ name, price, category }) => {
+  const addCashMenuProduct = ({ name, price, category, recipe = [] }) => {
     const product = {
       id: `custom-${Date.now()}`,
       name: name.trim(),
       price,
       category: category || 'Comidas varias',
+      recipe,
     }
 
     setCashMenuProducts((current) => [...current, product])
@@ -181,9 +206,11 @@ function App() {
   }
 
   const updateCashMenuProduct = (productId, changes) => {
+    if (!cashMenuProducts.some((product) => product.id === productId)) return false
     setCashMenuProducts((current) => current.map((product) => (
       product.id === productId ? { ...product, ...changes } : product
     )))
+    return true
   }
 
   const registerCashExpense = (concept, amount) => {
@@ -208,6 +235,20 @@ function App() {
 
   const deleteCashBox = (cashBoxId) => {
     setCashBoxes((current) => current.filter((cashBox) => cashBox.id !== cashBoxId))
+  }
+
+  const markAccountSalePaid = (cashBoxId, saleId) => {
+    const paidAt = new Date().toISOString()
+    setCashBoxes((current) => current.map((cashBox) => (
+      cashBox.id === cashBoxId
+        ? {
+            ...cashBox,
+            sales: (cashBox.sales ?? []).map((sale) => (
+              sale.id === saleId ? { ...sale, accountPaidAt: paidAt } : sale
+            )),
+          }
+        : cashBox
+    )))
   }
 
   const addProductPurchase = (purchaseDetails) => {
@@ -248,6 +289,8 @@ function App() {
           {activeBox ? 'Caja abierta' : 'Caja cerrada'}
         </div>
       </header>
+
+      {storageWarning && <div className="storage-state error" role="alert">{storageWarning}</div>}
 
       {page === 'home' && (
         <>
@@ -319,6 +362,14 @@ function App() {
           cashBoxes={cashBoxes}
           onBack={() => navigateTo('home')}
           onDeleteCashBox={deleteCashBox}
+        />
+      )}
+
+      {page === 'account' && (
+        <CurrentAccountView
+          cashBoxes={cashBoxes}
+          onBack={() => navigateTo('home')}
+          onMarkPaid={markAccountSalePaid}
         />
       )}
 

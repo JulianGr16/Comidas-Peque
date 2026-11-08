@@ -477,6 +477,16 @@
 	font-size: 12px;
 }
 
+.cash-open-form {
+	display: flex;
+	align-items: flex-end;
+	gap: 12px;
+}
+
+.cash-open-form .expense-field {
+	min-width: 240px;
+}
+
 .cash-expenses-panel {
 	margin-top: 13px;
 	padding: 17px 18px;
@@ -1023,6 +1033,132 @@
 .checkout-button {
 	width: 100%;
 	margin-top: 14px;
+}
+
+.account-charge-button {
+	width: 100%;
+	margin-top: 9px;
+}
+
+.modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 20;
+	display: grid;
+	place-items: center;
+	padding: 20px;
+	background: rgb(8 13 10 / 76%);
+}
+
+.account-modal {
+	position: relative;
+	display: grid;
+	gap: 14px;
+	width: min(100%, 440px);
+	padding: 28px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--surface);
+	box-shadow: 0 24px 80px rgb(0 0 0 / 40%);
+}
+
+.account-modal h2 {
+	margin: -8px 0 0;
+}
+
+.account-modal .work-subtitle {
+	margin: -8px 0 4px;
+}
+
+.modal-close {
+	position: absolute;
+	top: 12px;
+	right: 14px;
+	border: 0;
+	background: transparent;
+	color: var(--ink);
+	font-size: 26px;
+	cursor: pointer;
+}
+
+.modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 4px;
+}
+
+.account-records {
+	display: grid;
+	gap: 12px;
+	margin-top: 22px;
+}
+
+.account-record,
+.account-empty {
+	padding: 18px;
+	border: 1px solid var(--line);
+	border-radius: 9px;
+	background: var(--surface);
+}
+
+.account-record-heading,
+.account-customer-details {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.account-record-heading > div,
+.account-customer-details {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+}
+
+.account-record-heading span,
+.account-record p,
+.account-customer-details {
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.account-record-heading > div {
+	display: grid;
+	gap: 5px;
+}
+
+.account-record p {
+	margin: 12px 0 0;
+}
+
+.account-paid-button {
+	margin-top: 14px;
+}
+
+.account-empty {
+	display: grid;
+	justify-items: center;
+	padding: 36px 18px;
+	color: var(--muted);
+}
+
+.payment-method-field {
+	display: grid;
+	gap: 7px;
+	margin-top: 14px;
+	color: #b7c2b9;
+	font-size: 12px;
+}
+
+.payment-method-field select {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid #405b46;
+	border-radius: 6px;
+	background: #202f24;
+	color: #f2f5f0;
+	font: inherit;
 }
 
 .checkout-hint,
@@ -2104,6 +2240,16 @@
 
 	.cash-control .button {
 		width: 100%;
+	}
+
+	.cash-open-form {
+		width: 100%;
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.cash-open-form .expense-field {
+		min-width: 0;
 	}
 
 	.cash-expense-form {

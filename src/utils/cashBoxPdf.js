@@ -75,7 +75,9 @@ export async function createCashBoxPdf(cashBox) {
   document.setFontSize(9)
   document.text(`Apertura: ${formatDateTime(cashBox.openedAt)}`, LEFT, y)
   document.text(`Cierre: ${cashBox.closedAt ? formatDateTime(cashBox.closedAt) : 'Turno en curso'}`, 108, y)
-  y += 12
+  y += 6
+  document.text(`Monto inicial de efectivo: ${formatCurrency(Number(cashBox.openingCashAmount) || 0)}`, LEFT, y)
+  y += 9
 
   document.setFillColor(36, 70, 52)
   document.roundedRect(LEFT, y, RIGHT - LEFT, 27, 2, 2, 'F')
